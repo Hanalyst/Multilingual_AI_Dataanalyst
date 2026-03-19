@@ -5,6 +5,7 @@ from app.models.dataset import Dataset
 from app.models.user import User
 from app.services.auth_dependency import get_current_user
 from app.services.ai_engine.intent_parser import parse_intent
+from app.services.ai_engine.ai_sql_generator import generate_sql_with_ai
 from app.services.sql_generator import generate_sql
 
 import pandas as pd
@@ -41,23 +42,31 @@ def ask_question(
     if not dataset_record:
         raise HTTPException(status_code=404, detail="Dataset not found")
 
-    # ?? Load CSV from DB string content ??????????????????????????????????????
+    # ? CHANGED: read CSV from DB string, not disk
     try:
         df = pd.read_csv(io.StringIO(dataset_record.file_path))
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to read CSV: {str(e)}")
 
     columns      = list(df.columns)
-    column_types = {col: str(df[col].dtype) for col in df.columns}
+    column_types = {col: str(df[col].dtype) for col in df.columns}  # ? ADDED
+    sample_rows  = df.head(5).to_dict(orient="records")              # ? ADDED
     table_name   = "data"
 
-    # ?? Parse intent WITH column context ?????????????????????????????????????
+    # ? CHANGED: pass columns + column_types to intent parser
     intent = parse_intent(question, columns=columns, column_types=column_types)
 
-    # ?? Generate SQL ??????????????????????????????????????????????????????????
-    sql = generate_sql(intent, table_name, columns)
+    # ? CHANGED: use Groq AI, fall back to rule-based if AI fails
+    sql = generate_sql_with_ai(
+        question=question,
+        columns=columns,
+        column_types=column_types,
+        sample_rows=sample_rows
+    )
+    if not sql:
+        sql = generate_sql(intent, table_name, columns)
 
-    # ?? Execute SQL on in-memory SQLite ???????????????????????????????????????
+    # Everything below is UNCHANGED from your original working code
     try:
         conn = sqlite3.connect(":memory:")
         df.to_sql(table_name, conn, index=False, if_exists="replace")
@@ -66,7 +75,6 @@ def ask_question(
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"SQL execution failed: {str(e)}")
 
-    # ?? Build chart config ????????????????????????????????????????????????????
     chart_type = "bar"
     if intent.get("trend") or intent.get("date_grouping"):
         chart_type = "line"
@@ -80,7 +88,7 @@ def ask_question(
         label_col  = result_cols[0]
         value_col  = result_cols[1]
         chart_data = {
-            "type":   chart_type,
+            "type": chart_type,
             "labels": result_df[label_col].astype(str).tolist(),
             "datasets": [{
                 "label": value_col,
@@ -88,7 +96,6 @@ def ask_question(
             }]
         }
 
-    # ?? Generate insight ??????????????????????????????????????????????????????
     insight = build_insight(intent, result_df)
 
     return {

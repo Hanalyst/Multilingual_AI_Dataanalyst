@@ -1,7 +1,6 @@
 import { useState, useEffect } from "react";
 import ChartRenderer from "../Charts/ChartRenderer";
 
-// Chart types the user can manually switch between
 const CHART_TABS = [
   { key: "bar",   label: "Bar" },
   { key: "line",  label: "Line" },
@@ -10,24 +9,15 @@ const CHART_TABS = [
   { key: "donut", label: "Donut" },
 ];
 
-/**
- * Props:
- *  - data          : array of row objects  (required)
- *  - recommendedType : chart type string from backend  (e.g. "bar", "pie")
- */
 function ChartView({ data, recommendedType }) {
-  // Reset the active chart type whenever the backend sends a new recommendation
   const [activeType, setActiveType] = useState(recommendedType || "bar");
 
   useEffect(() => {
-    if (recommendedType) {
-      setActiveType(recommendedType);
-    }
+    if (recommendedType) setActiveType(recommendedType);
   }, [recommendedType, data]);
 
   return (
     <div className="chart-view">
-      {/* Chart type switcher */}
       <div className="chart-tabs">
         {CHART_TABS.map((tab) => (
           <button
@@ -39,8 +29,6 @@ function ChartView({ data, recommendedType }) {
           </button>
         ))}
       </div>
-
-      {/* Chart */}
       <div className="chart-body">
         <ChartRenderer data={data} chartType={activeType} />
       </div>
