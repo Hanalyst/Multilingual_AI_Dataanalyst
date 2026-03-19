@@ -1,6 +1,7 @@
 ﻿from fastapi import APIRouter, Depends, HTTPException, Body
 from sqlalchemy.orm import Session
-from app.database import SessionLocal
+from sqlalchemy import text
+from app.database import SessionLocal, engine
 from app.models.dataset import Dataset
 from app.models.user import User
 from app.models.chat_history import ChatHistory
@@ -11,7 +12,6 @@ from app.services.ai_engine.insight_generator import generate_insight_with_ai
 from app.services.sql_generator import generate_sql
 
 import pandas as pd
-import sqlite3
 import io
 import uuid
 
@@ -48,40 +48,75 @@ def ask_question(
     if not dataset_record:
         raise HTTPException(status_code=404, detail="Dataset not found")
 
-    # 2. Load CSV from DB string
+    # 2. Parse CSV from DB
     try:
         df = pd.read_csv(io.StringIO(dataset_record.file_path))
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to read CSV: {str(e)}")
 
+    # Clean column names — strip spaces, replace special chars
+    df.columns = [col.strip().replace(" ", "_").replace("-", "_") for col in df.columns]
+
     columns      = list(df.columns)
     column_types = {col: str(df[col].dtype) for col in df.columns}
     sample_rows  = df.head(5).to_dict(orient="records")
-    table_name   = "data"
 
-    # 3. Parse intent with column context
+    # 3. Generate unique temp table name for this request
+    temp_table = f"tmp_{uuid.uuid4().hex[:12]}"
+
+    # 4. Parse intent
     intent = parse_intent(question, columns=columns, column_types=column_types)
 
-    # 4. Generate SQL via Groq AI, fall back to rule-based
+    # 5. Generate SQL via Groq AI, fall back to rule-based
+    #    Tell AI the table name is the temp table
     sql = generate_sql_with_ai(
         question=question,
         columns=columns,
         column_types=column_types,
-        sample_rows=sample_rows
+        sample_rows=sample_rows,
+        table_name=temp_table,
+        language=language
     )
     if not sql:
-        sql = generate_sql(intent, table_name, columns)
+        sql = generate_sql(intent, temp_table, columns)
+    else:
+        # Replace hardcoded "data" table references with actual temp table name
+        import re
+        sql = re.sub(r'\b"?data"?\b', f'"{temp_table}"', sql, flags=re.IGNORECASE)
 
-    # 5. Execute SQL on in-memory SQLite
+    # 6. Load CSV into PostgreSQL temp table and execute SQL
     try:
-        conn = sqlite3.connect(":memory:")
-        df.to_sql(table_name, conn, index=False, if_exists="replace")
-        result_df = pd.read_sql_query(sql, conn)
-        conn.close()
+        with engine.begin() as conn:
+            # Write CSV data into temp table (auto-creates columns from df)
+            df.to_sql(
+                temp_table,
+                conn,
+                if_exists="replace",
+                index=False,
+                method="multi",
+                chunksize=500
+            )
+
+            # Execute the AI-generated SQL
+            result = conn.execute(text(sql))
+            rows = result.fetchall()
+            col_names = list(result.keys())
+
+            # Drop temp table immediately after query
+            conn.execute(text(f'DROP TABLE IF EXISTS "{temp_table}"'))
+
+        result_df = pd.DataFrame(rows, columns=col_names)
+
     except Exception as e:
+        # Always try to clean up temp table even on error
+        try:
+            with engine.begin() as conn:
+                conn.execute(text(f'DROP TABLE IF EXISTS "{temp_table}"'))
+        except Exception:
+            pass
         raise HTTPException(status_code=500, detail=f"SQL execution failed: {str(e)}")
 
-    # 6. Build chart config
+    # 7. Build chart config
     chart_type = "bar"
     if intent.get("trend") or intent.get("date_grouping"):
         chart_type = "line"
@@ -99,11 +134,14 @@ def ask_question(
             "labels": result_df[label_col].astype(str).tolist(),
             "datasets": [{
                 "label": value_col,
-                "data":  result_df[value_col].round(2).tolist()
+                "data": [
+                    round(float(v), 2) if v is not None else 0
+                    for v in result_df[value_col].tolist()
+                ]
             }]
         }
 
-    # 7. Generate insight in selected language using AI
+    # 8. Generate insight in selected language using AI
     insight = generate_insight_with_ai(
         question=question,
         sql=sql,
@@ -111,7 +149,7 @@ def ask_question(
         language=language
     )
 
-    # 8. Save to chat history
+    # 9. Save to chat history
     try:
         if not session_id:
             session_id = str(uuid.uuid4())
@@ -131,7 +169,7 @@ def ask_question(
     except Exception as e:
         print(f"Chat history save failed: {str(e)}")
 
-    # 9. Return
+    # 10. Return
     return {
         "question":   question,
         "sql":        sql,
