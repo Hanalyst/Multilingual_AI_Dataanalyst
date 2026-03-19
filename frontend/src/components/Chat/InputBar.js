@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from "react";
+﻿import { useState, useRef, useEffect } from "react";
 import API from "../../services/api";
 
 function InputBar({ messages, setMessages, setLoading, sessionId, setSessionId, injectedQuestion, setInjectedQuestion }) {
@@ -41,7 +41,14 @@ function InputBar({ messages, setMessages, setLoading, sessionId, setSessionId, 
     setLoading(true);
     setQuestion("");
     try {
-      const res = await API.post("/ask", { dataset_id, question: currentQuestion });
+      const res = await API.post("/ask", {
+        dataset_id,
+        question: currentQuestion,
+        session_id: sessionId || null
+      });
+      if (res.data.session_id) {
+        setSessionId(res.data.session_id);
+      }
       setMessages((prev) => [...prev, {
         role: "assistant",
         question: currentQuestion,
