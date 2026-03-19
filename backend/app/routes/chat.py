@@ -41,17 +41,23 @@ def ask_question(
     if not dataset_record:
         raise HTTPException(status_code=404, detail="Dataset not found")
 
+    # ?? Load CSV from DB string content ??????????????????????????????????????
     try:
         df = pd.read_csv(io.StringIO(dataset_record.file_path))
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to read CSV: {str(e)}")
 
-    columns = list(df.columns)
-    table_name = "data"
+    columns      = list(df.columns)
+    column_types = {col: str(df[col].dtype) for col in df.columns}
+    table_name   = "data"
 
-    intent = parse_intent(question)
+    # ?? Parse intent WITH column context ?????????????????????????????????????
+    intent = parse_intent(question, columns=columns, column_types=column_types)
+
+    # ?? Generate SQL ??????????????????????????????????????????????????????????
     sql = generate_sql(intent, table_name, columns)
 
+    # ?? Execute SQL on in-memory SQLite ???????????????????????????????????????
     try:
         conn = sqlite3.connect(":memory:")
         df.to_sql(table_name, conn, index=False, if_exists="replace")
@@ -60,35 +66,37 @@ def ask_question(
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"SQL execution failed: {str(e)}")
 
+    # ?? Build chart config ????????????????????????????????????????????????????
     chart_type = "bar"
     if intent.get("trend") or intent.get("date_grouping"):
         chart_type = "line"
     elif intent.get("group_by") and result_df.shape[0] <= 6:
         chart_type = "pie"
 
-    chart_data = None
+    chart_data  = None
     result_cols = list(result_df.columns)
 
     if len(result_cols) == 2:
         label_col  = result_cols[0]
         value_col  = result_cols[1]
         chart_data = {
-            "type": chart_type,
+            "type":   chart_type,
             "labels": result_df[label_col].astype(str).tolist(),
             "datasets": [{
                 "label": value_col,
-                "data": result_df[value_col].round(2).tolist()
+                "data":  result_df[value_col].round(2).tolist()
             }]
         }
 
+    # ?? Generate insight ??????????????????????????????????????????????????????
     insight = build_insight(intent, result_df)
 
     return {
         "question": question,
-        "sql": sql,
-        "table": result_df.to_dict(orient="records"),
-        "chart": chart_data,
-        "insight": insight
+        "sql":      sql,
+        "table":    result_df.to_dict(orient="records"),
+        "chart":    chart_data,
+        "insight":  insight
     }
 
 
@@ -108,11 +116,11 @@ def build_insight(intent: dict, df: pd.DataFrame) -> str:
         top_row   = df.iloc[0]
         top_label = top_row[label_col]
         top_value = top_row[value_col]
-        metric = intent.get("metric", "value")
-        agg    = intent.get("aggregation", "sum")
+        metric    = intent.get("metric", "value")
+        agg       = intent.get("aggregation", "sum")
         return (
-            f"The highest {agg} of {metric} is from '"
-            f"{top_label}' with a value of {round(float(top_value), 2)}. "
+            f"The highest {agg} of {metric} is from '{top_label}' "
+            f"with a value of {round(float(top_value), 2)}. "
             f"Total of {len(df)} groups found."
         )
 
