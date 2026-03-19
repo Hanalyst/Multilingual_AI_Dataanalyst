@@ -1,7 +1,7 @@
 import axios from "axios";
 
 const API = axios.create({
-  baseURL: "https://multilingual-ai-dataanalyst.onrender.com"
+  baseURL: process.env.REACT_APP_API_URL || "https://multilingual-ai-dataanalyst.onrender.com"
 });
 
 API.interceptors.request.use((req) => {
@@ -24,5 +24,3 @@ API.interceptors.response.use(
 );
 
 export default API;
-
-
