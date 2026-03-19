@@ -7,6 +7,7 @@ from app.models.chat_history import ChatHistory
 from app.services.auth_dependency import get_current_user
 from app.services.ai_engine.intent_parser import parse_intent
 from app.services.ai_engine.ai_sql_generator import generate_sql_with_ai
+from app.services.ai_engine.insight_generator import generate_insight_with_ai
 from app.services.sql_generator import generate_sql
 
 import pandas as pd
@@ -33,6 +34,7 @@ def ask_question(
     question   = data.get("question", "")
     dataset_id = data.get("dataset_id")
     session_id = data.get("session_id")
+    language   = data.get("language", "en")
 
     if not dataset_id:
         raise HTTPException(status_code=400, detail="dataset_id is required")
@@ -101,8 +103,13 @@ def ask_question(
             }]
         }
 
-    # 7. Generate insight
-    insight = build_insight(intent, result_df)
+    # 7. Generate insight in selected language using AI
+    insight = generate_insight_with_ai(
+        question=question,
+        sql=sql,
+        df=result_df,
+        language=language
+    )
 
     # 8. Save to chat history
     try:
@@ -133,30 +140,3 @@ def ask_question(
         "insight":    insight,
         "session_id": session_id
     }
-
-
-def build_insight(intent: dict, df: pd.DataFrame) -> str:
-    if df.empty:
-        return "No data found for your query."
-
-    cols = list(df.columns)
-
-    if len(cols) == 1:
-        val = df.iloc[0, 0]
-        return f"The result is {round(float(val), 2) if isinstance(val, float) else val}."
-
-    if len(cols) == 2:
-        label_col = cols[0]
-        value_col = cols[1]
-        top_row   = df.iloc[0]
-        top_label = top_row[label_col]
-        top_value = top_row[value_col]
-        metric    = intent.get("metric", "value")
-        agg       = intent.get("aggregation", "sum")
-        return (
-            f"The highest {agg} of {metric} is from '{top_label}' "
-            f"with a value of {round(float(top_value), 2)}. "
-            f"Total of {len(df)} groups found."
-        )
-
-    return f"Query returned {len(df)} rows and {len(cols)} columns."

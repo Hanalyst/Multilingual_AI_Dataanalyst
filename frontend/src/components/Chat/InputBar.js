@@ -53,6 +53,7 @@ function InputBar({ messages, setMessages, setLoading, sessionId, setSessionId, 
     const dataset_id = localStorage.getItem("dataset_id");
     if (!dataset_id || dataset_id === "null") { alert("Please upload a dataset first"); return; }
     const currentQuestion = question;
+    const currentLang = getLang();
     setMessages((prev) => [...prev, { role: "user", text: currentQuestion }]);
     setLoading(true);
     setQuestion("");
@@ -60,7 +61,8 @@ function InputBar({ messages, setMessages, setLoading, sessionId, setSessionId, 
       const res = await API.post("/ask", {
         dataset_id,
         question: currentQuestion,
-        session_id: sessionId || null
+        session_id: sessionId || null,
+        language: currentLang
       });
       if (res.data.session_id) setSessionId(res.data.session_id);
       setMessages((prev) => [...prev, {
