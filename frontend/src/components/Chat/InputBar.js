@@ -1,6 +1,20 @@
 ﻿import { useState, useRef, useEffect } from "react";
 import API from "../../services/api";
 
+const VOICE_LANG = {
+  en:"en-US", ta:"ta-IN", hi:"hi-IN", te:"te-IN", ml:"ml-IN",
+  kn:"kn-IN", bn:"bn-IN", gu:"gu-IN", pa:"pa-IN",
+  ar:"ar-SA", fr:"fr-FR", de:"de-DE", ja:"ja-JP", zh:"zh-CN"
+};
+
+const PLACEHOLDER = {
+  en:"Ask your dataset...", ta:"உங்கள் தரவைக் கேளுங்கள்...", hi:"अपना डेटा पूछें...",
+  te:"మీ డేటా అడగండి...", ml:"നിങ്ങളുടെ ഡേറ്റ ചോദിക്കൂ...", kn:"ನಿಮ್ಮ ಡೇಟಾ ಕೇಳಿ...",
+  bn:"আপনার ডেটা জিজ্ঞাসা করুন...", gu:"તમારો ડેટા પૂછો...", pa:"ਆਪਣਾ ਡੇਟਾ ਪੁੱਛੋ...",
+  ar:"اسأل عن بياناتك...", fr:"Interrogez vos données...", de:"Fragen Sie Ihre Daten...",
+  ja:"データを質問してください...", zh:"询问您的数据..."
+};
+
 function InputBar({ messages, setMessages, setLoading, sessionId, setSessionId, injectedQuestion, setInjectedQuestion }) {
   const [question, setQuestion] = useState("");
   const [isListening, setIsListening] = useState(false);
@@ -13,12 +27,14 @@ function InputBar({ messages, setMessages, setLoading, sessionId, setSessionId, 
     }
   }, [injectedQuestion, setInjectedQuestion]);
 
+  const getLang = () => localStorage.getItem("language") || "en";
+
   const startVoiceInput = () => {
     const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
     if (!SpeechRecognition) { alert("Voice input not supported in your browser."); return; }
     if (isListening) { recognitionRef.current?.stop(); setIsListening(false); return; }
     const recognition = new SpeechRecognition();
-    recognition.lang = "en-US";
+    recognition.lang = VOICE_LANG[getLang()] || "en-US";
     recognition.interimResults = false;
     recognition.maxAlternatives = 1;
     recognition.onstart = () => setIsListening(true);
@@ -46,9 +62,7 @@ function InputBar({ messages, setMessages, setLoading, sessionId, setSessionId, 
         question: currentQuestion,
         session_id: sessionId || null
       });
-      if (res.data.session_id) {
-        setSessionId(res.data.session_id);
-      }
+      if (res.data.session_id) setSessionId(res.data.session_id);
       setMessages((prev) => [...prev, {
         role: "assistant",
         question: currentQuestion,
@@ -64,13 +78,15 @@ function InputBar({ messages, setMessages, setLoading, sessionId, setSessionId, 
     setLoading(false);
   };
 
+  const lang = getLang();
+
   return (
     <div className={`input-bar ${isListening ? "listening-active" : ""}`}>
       <input
         value={question}
         onChange={(e) => setQuestion(e.target.value)}
         onKeyDown={(e) => e.key === "Enter" && sendMessage()}
-        placeholder={isListening ? "Listening..." : "Ask your dataset..."}
+        placeholder={isListening ? "..." : (PLACEHOLDER[lang] || PLACEHOLDER.en)}
       />
       <button className={`mic-btn ${isListening ? "listening" : ""}`} onClick={startVoiceInput} title="Voice input">
         <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
