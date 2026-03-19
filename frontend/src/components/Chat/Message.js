@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from "react";
+﻿import { useState, useRef, useEffect } from "react";
 import ChartRenderer from "../Charts/ChartRenderer";
 import { exportToPDF } from "../../services/exportPDF";
 import { exportToExcel } from "../../services/exportExcel";
@@ -9,7 +9,6 @@ function Message({ message, question }) {
   const [chartType, setChartType] = useState(null);
   const chartRef = useRef(null);
 
-  // Reset chart type to backend recommendation on every new message
   useEffect(() => {
     setChartType(message.chart?.type || "bar");
   }, [message]);
@@ -61,7 +60,6 @@ function Message({ message, question }) {
       <div className="avatar ai-avatar">AI</div>
       <div className="message-content ai-bubble">
 
-        {/* â”€â”€ Tabs â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
         <div className="tabs">
           {["table", "chart", "sql", "insight"].map(tab => (
             <button
@@ -76,29 +74,27 @@ function Message({ message, question }) {
           {message.data && message.data.length > 0 && (
             <>
               <button className="tab-btn export-btn" onClick={handleExcelExport}>
-                â†“ Excel
+                Download Excel
               </button>
               <button className="tab-btn export-btn" onClick={handlePDFExport}>
-                â†“ PDF
+                Download PDF
               </button>
             </>
           )}
         </div>
 
-        {/* â”€â”€ SQL tab â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
         {activeTab === "sql" && (
           <div className="sql-box">
             <div className="sql-header">
               <span className="sql-lang">SQL</span>
               <button className="copy-btn" onClick={copySQL}>
-                {copied ? "âœ“ Copied" : "Copy"}
+                {copied ? "Copied!" : "Copy"}
               </button>
             </div>
             <pre>{message.sql || "No SQL generated"}</pre>
           </div>
         )}
 
-        {/* â”€â”€ Table tab â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
         {activeTab === "table" && (
           message.data && message.data.length > 0 ? (
             <div className="table-wrapper">
@@ -130,7 +126,6 @@ function Message({ message, question }) {
           )
         )}
 
-        {/* â”€â”€ Chart tab â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
         {activeTab === "chart" && (
           <div className="chart-box" ref={chartRef}>
             <div className="chart-type-selector">
@@ -140,11 +135,6 @@ function Message({ message, question }) {
                   className={"chart-type-btn" + (activeChartType === type ? " chart-type-active" : "")}
                   onClick={() => setChartType(type)}
                 >
-                  {type === "bar"   && "â–Š "}
-                  {type === "line"  && "â•± "}
-                  {type === "area"  && "â—­ "}
-                  {type === "pie"   && "â—‰ "}
-                  {type === "donut" && "â—Ž "}
                   {type.charAt(0).toUpperCase() + type.slice(1)}
                 </button>
               ))}
@@ -156,7 +146,6 @@ function Message({ message, question }) {
           </div>
         )}
 
-        {/* â”€â”€ Insight tab â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
         {activeTab === "insight" && (
           <div className="insight-box">
             <p style={{ color: "#ececec", fontSize: "13px", lineHeight: "1.7" }}>
