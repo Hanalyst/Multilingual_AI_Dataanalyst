@@ -82,7 +82,7 @@ function Overview({ onClose }) {
             {stats.recentSessions.map(session => (
               <div key={session.session_id} className="overview-chat-item">
                 <p className="chat-question">{session.title}</p>
-                <p className="chat-date">{new Date(session.created_at).toLocaleDateString()} · {session.messages.length} msg</p>
+                <p className="chat-date">{new Date(session.created_at).toLocaleDateString()} Â· {session.messages.length} msg</p>
               </div>
             ))}
           </div>

@@ -11,7 +11,7 @@ export async function exportToExcel(question, data, insight) {
   const headers = Object.keys(data[0]);
   const questionText = (question && question.trim()) ? question.trim() : "No question recorded";
 
-  // ── Sheet 1: Data ──────────────────────────────────────────────────────────
+  // â”€â”€ Sheet 1: Data â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   const dataSheet = workbook.addWorksheet("Data");
 
   // Row 1: Question
@@ -41,7 +41,7 @@ export async function exportToExcel(question, data, insight) {
   });
   dataSheet.getRow(4).height = 20;
 
-  // Data rows — plain, no fill, just clean text
+  // Data rows â€” plain, no fill, just clean text
   data.forEach(row => {
     const dataRow = dataSheet.addRow(Object.values(row));
     dataRow.eachCell((cell, colNum) => {
@@ -69,7 +69,7 @@ export async function exportToExcel(question, data, insight) {
     col.width = Math.min(maxLen + 4, 40);
   });
 
-  // Insight — plain text at bottom
+  // Insight â€” plain text at bottom
   if (insight) {
     dataSheet.addRow([]);
     dataSheet.addRow([]);
@@ -89,7 +89,7 @@ export async function exportToExcel(question, data, insight) {
     dataSheet.getRow(dataSheet.rowCount).height = 70;
   }
 
-  // ── Sheet 2: Chart ─────────────────────────────────────────────────────────
+  // â”€â”€ Sheet 2: Chart â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   const chartSheet = workbook.addWorksheet("Chart");
 
   // Row 1: Question
@@ -154,7 +154,7 @@ export async function exportToExcel(question, data, insight) {
   chartSheet.getColumn(1).width = 24;
   chartSheet.getColumn(2).width = 18;
 
-  // ── Download ───────────────────────────────────────────────────────────────
+  // â”€â”€ Download â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   const buffer = await workbook.xlsx.writeBuffer();
   const blob = new Blob([buffer], {
     type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
