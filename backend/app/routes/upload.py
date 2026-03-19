@@ -4,12 +4,8 @@ from app.database import SessionLocal
 from app.models.dataset import Dataset
 from app.models.user import User
 from app.services.auth_dependency import get_current_user
-import os
-import uuid
 
 router = APIRouter()
-
-UPLOAD_FOLDER = "uploads"
 
 def get_db():
     db = SessionLocal()
@@ -27,21 +23,15 @@ async def upload_dataset(
     if not file.filename.endswith(".csv"):
         raise HTTPException(status_code=400, detail="Only CSV files are supported")
 
-    os.makedirs(UPLOAD_FOLDER, exist_ok=True)
-
-    unique_name = str(uuid.uuid4()) + "_" + file.filename
-    file_path = os.path.join(UPLOAD_FOLDER, unique_name)
-
     try:
         content = await file.read()
-        with open(file_path, "wb") as buffer:
-            buffer.write(content)
+        csv_content = content.decode("utf-8")
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"File save failed: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"File read failed: {str(e)}")
 
     new_dataset = Dataset(
         name=file.filename,
-        file_path=file_path,
+        file_path=csv_content,
         user_id=current_user.id
     )
 
