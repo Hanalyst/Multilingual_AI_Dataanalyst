@@ -1,4 +1,4 @@
-﻿import Message from "./Message";
+import Message from "./Message";
 import InputBar from "./InputBar";
 import { useState, useRef, useEffect } from "react";
 
