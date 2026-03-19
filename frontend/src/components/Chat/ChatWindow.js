@@ -12,6 +12,7 @@ const SUGGESTIONS = [
 
 function ChatWindow({ messages, setMessages, sessionId, setSessionId }) {
   const [loading, setLoading] = useState(false);
+  const [injectedQuestion, setInjectedQuestion] = useState("");
   const bottomRef = useRef(null);
 
   useEffect(() => {
@@ -27,20 +28,7 @@ function ChatWindow({ messages, setMessages, sessionId, setSessionId }) {
             <p>Ask anything about your dataset</p>
             <div className="suggestion-chips">
               {SUGGESTIONS.map((s, i) => (
-                <div
-                  key={i}
-                  className="chip"
-                  onClick={() => {
-                    const input = document.querySelector(".input-bar input");
-                    if (input) {
-                      const nativeInputValueSetter = Object.getOwnPropertyDescriptor(
-                        window.HTMLInputElement.prototype, "value"
-                      ).set;
-                      nativeInputValueSetter.call(input, s);
-                      input.dispatchEvent(new Event("input", { bubbles: true }));
-                    }
-                  }}
-                >
+                <div key={i} className="chip" onClick={() => setInjectedQuestion(s)}>
                   {s}
                 </div>
               ))}
@@ -72,6 +60,8 @@ function ChatWindow({ messages, setMessages, sessionId, setSessionId }) {
           setLoading={setLoading}
           sessionId={sessionId}
           setSessionId={setSessionId}
+          injectedQuestion={injectedQuestion}
+          setInjectedQuestion={setInjectedQuestion}
         />
         <p className="input-hint">Hanalyst can make mistakes. Verify important results.</p>
       </div>
