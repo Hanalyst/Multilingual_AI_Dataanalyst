@@ -5,6 +5,7 @@ from sqlalchemy import text
 
 from app.models.user import User
 from app.models.dataset import Dataset
+from app.models.chat_history import ChatHistory
 
 from app.database import engine, Base
 
@@ -12,6 +13,7 @@ from app.routes import auth
 from app.routes import dataset as dataset_routes
 from app.routes import upload
 from app.routes import chat
+from app.routes import chat_history
 
 from app.services.auth_dependency import get_current_user
 
@@ -41,6 +43,7 @@ app.include_router(auth.router)
 app.include_router(dataset_routes.router)
 app.include_router(upload.router)
 app.include_router(chat.router)
+app.include_router(chat_history.router)
 
 @app.get("/me")
 def read_current_user(current_user: User = Depends(get_current_user)):
