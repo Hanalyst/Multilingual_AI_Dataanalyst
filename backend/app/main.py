@@ -61,10 +61,7 @@ def health():
 def db_check():
     with engine.connect() as connection:
         result = connection.execute(text("SELECT 1"))
-        return {
-            "db_status": "connected",
-            "result": result.scalar()
-        }
+        return {"db_status": "connected", "result": result.scalar()}
 
 print("------ ROUTES LOADED ------")
 for route in app.routes:
