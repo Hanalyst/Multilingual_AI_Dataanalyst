@@ -1,4 +1,4 @@
-import { useEffect, useState, useContext, useCallback } from "react";
+﻿import { useEffect, useState, useContext, useCallback } from "react";
 import API from "../../services/api";
 import { DatasetContext } from "../../context/DatasetContext";
 
@@ -9,16 +9,26 @@ function DatasetList() {
   const fetchDatasets = useCallback(async () => {
     try {
       const res = await API.get("/my-datasets");
+      // Deduplicate by id (not name) — name duplicates are valid different datasets
       const seen = new Set();
       const unique = res.data.filter(d => {
-        if (seen.has(d.name)) return false;
-        seen.add(d.name);
+        if (seen.has(d.id)) return false;
+        seen.add(d.id);
         return true;
       });
       setDatasets(unique);
-      if (!localStorage.getItem("dataset_id") && unique.length > 0) {
-        setDatasetId(unique[0].id);
-        localStorage.setItem("dataset_id", unique[0].id);
+
+      // If current active dataset no longer exists, clear it
+      const currentId = localStorage.getItem("dataset_id");
+      const stillExists = unique.some(d => String(d.id) === String(currentId));
+      if (!stillExists) {
+        if (unique.length > 0) {
+          setDatasetId(unique[0].id);
+          localStorage.setItem("dataset_id", unique[0].id);
+        } else {
+          setDatasetId(null);
+          localStorage.removeItem("dataset_id");
+        }
       }
     } catch (err) {
       console.error("Failed to fetch datasets:", err);
@@ -37,11 +47,19 @@ function DatasetList() {
     if (!window.confirm("Delete this dataset?")) return;
     try {
       await API.delete("/datasets/" + id);
-      if (datasetId === id) {
+
+      // Immediately remove from local state for instant UI feedback
+      setDatasets(prev => prev.filter(d => d.id !== id));
+
+      // Clear active dataset if deleted one was selected
+      if (String(datasetId) === String(id)) {
         setDatasetId(null);
         localStorage.removeItem("dataset_id");
       }
+
+      // Then refetch to sync with backend
       await fetchDatasets();
+
     } catch (err) {
       console.error("Delete failed:", err);
       alert("Could not delete dataset.");
@@ -58,7 +76,7 @@ function DatasetList() {
         <div
           key={d.id}
           onClick={() => selectDataset(d)}
-          className={"dataset-item" + (datasetId === d.id ? " active-dataset" : "")}
+          className={"dataset-item" + (String(datasetId) === String(d.id) ? " active-dataset" : "")}
         >
           <span className="dataset-name">&#128202; {d.name}</span>
           <button
@@ -80,4 +98,3 @@ function DatasetList() {
 }
 
 export default DatasetList;
-
