@@ -1,12 +1,12 @@
-from fastapi import APIRouter, Depends, HTTPException
+﻿from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from sqlalchemy import text
 from app.database import SessionLocal, engine
 from app.models.dataset import Dataset
+from app.models.chat_history import ChatHistory
 from app.models.user import User
 from app.services.auth_dependency import get_current_user
 from app.schemas.dataset_schema import DatasetResponse
-import os
 import uuid
 
 router = APIRouter()
@@ -27,6 +27,7 @@ def get_my_datasets(
         Dataset.user_id == current_user.id
     ).order_by(Dataset.created_at.desc()).all()
 
+
 @router.delete("/datasets/{dataset_id}")
 def delete_dataset(
     dataset_id: str,
@@ -46,21 +47,21 @@ def delete_dataset(
     if not dataset:
         raise HTTPException(status_code=404, detail="Dataset not found")
 
-    # Nullify dataset_id in chat_history (requires nullable column)
-    with engine.connect() as conn:
-        conn.execute(
-            text("UPDATE chat_history SET dataset_id = NULL WHERE dataset_id = :did"),
-            {"did": str(dataset_uuid)}
-        )
-        conn.commit()
-
-    # Delete file from disk
     try:
-        if dataset.file_path and os.path.exists(dataset.file_path):
-            os.remove(dataset.file_path)
-    except Exception as e:
-        print(f"Warning: Could not delete file: {e}")
+        # Step 1 — Nullify dataset_id in chat_history first (breaks FK reference)
+        db.query(ChatHistory).filter(
+            ChatHistory.dataset_id == dataset_uuid
+        ).update({"dataset_id": None}, synchronize_session="fetch")
 
-    db.delete(dataset)
-    db.commit()
+        # Step 2 — Now safe to delete the dataset
+        db.delete(dataset)
+
+        # Step 3 — Commit both together
+        db.commit()
+
+    except Exception as e:
+        db.rollback()
+        print(f"Delete error: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Could not delete dataset: {str(e)}")
+
     return {"message": "Dataset deleted successfully"}
