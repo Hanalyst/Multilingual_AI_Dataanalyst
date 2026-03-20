@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+﻿import { useState, useEffect, useRef } from "react";
 import Sidebar from "../components/Sidebar/Sidebar";
 import ChatWindow from "../components/Chat/ChatWindow";
 import Overview from "./Overview";
@@ -30,13 +30,14 @@ function Dashboard({ onLogout }) {
   const handleLoadSession = (session) => {
     const allMessages = [];
     session.messages.forEach(msg => {
-      allMessages.push({ role: "user", text: msg.question });
+      allMessages.push({ role: "user", text: msg.question, lang: msg.lang || "en" });
       allMessages.push({
         role: "assistant",
         sql: msg.sql_query,
         data: msg.result_data || [],
         insight: msg.insight,
-        chart: msg.chart_data
+        chart: msg.chart_data,
+        lang: msg.lang || "en"
       });
     });
     setMessages(allMessages);
@@ -49,6 +50,15 @@ function Dashboard({ onLogout }) {
     setMessages([]);
     setSessionId(null);
     setActiveChatId(null);
+  };
+
+  // ✅ Refresh sidebar with a short delay so DB write completes first
+  const triggerSidebarRefresh = (sid) => {
+    setSessionId(sid);
+    setActiveChatId(sid);
+    setTimeout(() => {
+      setRefreshSidebar(prev => prev + 1);
+    }, 800);
   };
 
   return (
@@ -98,11 +108,7 @@ function Dashboard({ onLogout }) {
           messages={messages}
           setMessages={setMessages}
           sessionId={sessionId}
-          setSessionId={(sid) => {
-            setSessionId(sid);
-            setActiveChatId(sid);
-            setRefreshSidebar(prev => prev + 1);
-          }}
+          setSessionId={triggerSidebarRefresh}
         />
       </div>
     </div>
