@@ -8,11 +8,20 @@ const VOICE_LANG = {
 };
 
 const PLACEHOLDER = {
-  en:"Ask your dataset...", ta:"உங்கள் தரவைக் கேளுங்கள்...", hi:"अपना डेटा पूछें...",
-  te:"మీ డేటా అడగండి...", ml:"നിങ്ങളുടെ ഡേറ്റ ചോദിക്കൂ...", kn:"ನಿಮ್ಮ ಡೇಟಾ ಕೇಳಿ...",
-  bn:"আপনার ডেটা জিজ্ঞাসা করুন...", gu:"તમારો ડેટા પૂછો...", pa:"ਆਪਣਾ ਡੇਟਾ ਪੁੱਛੋ...",
-  ar:"اسأل عن بياناتك...", fr:"Interrogez vos données...", de:"Fragen Sie Ihre Daten...",
-  ja:"データを質問してください...", zh:"询问您的数据..."
+  en:"Ask your dataset...",
+  ta:"Ask your dataset... (Tamil)",
+  hi:"Ask your dataset... (Hindi)",
+  te:"Ask your dataset... (Telugu)",
+  ml:"Ask your dataset... (Malayalam)",
+  kn:"Ask your dataset... (Kannada)",
+  bn:"Ask your dataset... (Bengali)",
+  gu:"Ask your dataset... (Gujarati)",
+  pa:"Ask your dataset... (Punjabi)",
+  ar:"Ask your dataset... (Arabic)",
+  fr:"Interrogez vos donnees...",
+  de:"Fragen Sie Ihre Daten...",
+  ja:"Ask your dataset... (Japanese)",
+  zh:"Ask your dataset... (Chinese)"
 };
 
 function InputBar({ messages, setMessages, setLoading, sessionId, setSessionId, injectedQuestion, setInjectedQuestion }) {
@@ -21,12 +30,13 @@ function InputBar({ messages, setMessages, setLoading, sessionId, setSessionId, 
   const [currentLang, setCurrentLang] = useState(localStorage.getItem("language") || "en");
   const recognitionRef = useRef(null);
 
+  // ✅ Listen for instant language change from Settings
   useEffect(() => {
-    const interval = setInterval(() => {
-      const lang = localStorage.getItem("language") || "en";
-      setCurrentLang(prev => prev !== lang ? lang : prev);
-    }, 500);
-    return () => clearInterval(interval);
+    const handleLangChange = (e) => {
+      setCurrentLang(e.detail.lang);
+    };
+    window.addEventListener("languageChanged", handleLangChange);
+    return () => window.removeEventListener("languageChanged", handleLangChange);
   }, []);
 
   useEffect(() => {
@@ -61,7 +71,7 @@ function InputBar({ messages, setMessages, setLoading, sessionId, setSessionId, 
     if (!dataset_id || dataset_id === "null") { alert("Please upload a dataset first"); return; }
     const currentQuestion = question;
     const lang = currentLang;
-    setMessages((prev) => [...prev, { role: "user", text: currentQuestion }]);
+    setMessages((prev) => [...prev, { role: "user", text: currentQuestion, lang }]);
     setLoading(true);
     setQuestion("");
     try {
@@ -79,24 +89,24 @@ function InputBar({ messages, setMessages, setLoading, sessionId, setSessionId, 
         data: res.data.table,
         insight: res.data.insight,
         chart: res.data.chart,
-        lang: lang,
+        lang,
       }]);
     } catch (err) {
       console.error("Chat error:", err);
-      setMessages((prev) => [...prev, { role: "assistant", text: "Something went wrong. Please try again.", lang: lang }]);
+      setMessages((prev) => [...prev, { role: "assistant", text: "Something went wrong. Please try again.", lang }]);
     }
     setLoading(false);
   };
 
   return (
-    <div className={input-bar \}>
+    <div className={`input-bar ${isListening ? "listening-active" : ""}`}>
       <input
         value={question}
         onChange={(e) => setQuestion(e.target.value)}
         onKeyDown={(e) => e.key === "Enter" && sendMessage()}
-        placeholder={isListening ? "..." : (PLACEHOLDER[currentLang] || PLACEHOLDER.en)}
+        placeholder={isListening ? "Listening..." : (PLACEHOLDER[currentLang] || PLACEHOLDER.en)}
       />
-      <button className={mic-btn \} onClick={startVoiceInput} title="Voice input">
+      <button className={`mic-btn ${isListening ? "listening" : ""}`} onClick={startVoiceInput} title="Voice input">
         <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
           <rect x="9" y="2" width="6" height="11" rx="3" />
           <path d="M5 10a7 7 0 0 0 14 0" />

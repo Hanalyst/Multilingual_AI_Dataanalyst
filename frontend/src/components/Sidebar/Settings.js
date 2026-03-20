@@ -1,20 +1,20 @@
-import { useState } from "react";
+﻿import { useState } from "react";
 
 const LANGUAGES = [
-  { code: "en", label: "English", native: "English" },
-  { code: "ta", label: "Tamil", native: "Tamil" },
-  { code: "hi", label: "Hindi", native: "Hindi" },
-  { code: "te", label: "Telugu", native: "Telugu" },
-  { code: "ml", label: "Malayalam", native: "Malayalam" },
-  { code: "kn", label: "Kannada", native: "Kannada" },
-  { code: "bn", label: "Bengali", native: "Bengali" },
-  { code: "gu", label: "Gujarati", native: "Gujarati" },
-  { code: "pa", label: "Punjabi", native: "Punjabi" },
-  { code: "ar", label: "Arabic", native: "Arabic" },
-  { code: "fr", label: "French", native: "French" },
-  { code: "de", label: "German", native: "German" },
-  { code: "ja", label: "Japanese", native: "Japanese" },
-  { code: "zh", label: "Chinese", native: "Chinese" }
+  { code: "en", label: "English" },
+  { code: "ta", label: "Tamil" },
+  { code: "hi", label: "Hindi" },
+  { code: "te", label: "Telugu" },
+  { code: "ml", label: "Malayalam" },
+  { code: "kn", label: "Kannada" },
+  { code: "bn", label: "Bengali" },
+  { code: "gu", label: "Gujarati" },
+  { code: "pa", label: "Punjabi" },
+  { code: "ar", label: "Arabic" },
+  { code: "fr", label: "French" },
+  { code: "de", label: "German" },
+  { code: "ja", label: "Japanese" },
+  { code: "zh", label: "Chinese" }
 ];
 
 function Settings({ user, onLogout, onClose }) {
@@ -25,6 +25,10 @@ function Settings({ user, onLogout, onClose }) {
   const handleLanguageChange = (code) => {
     setLanguage(code);
     localStorage.setItem("language", code);
+
+    // ✅ Fire custom event so InputBar updates instantly in same tab
+    window.dispatchEvent(new CustomEvent("languageChanged", { detail: { lang: code } }));
+
     setSaved(true);
     setShowLanguages(false);
     setTimeout(() => setSaved(false), 2000);
@@ -56,7 +60,6 @@ function Settings({ user, onLogout, onClose }) {
           <div className="settings-divider" />
 
           <div className="settings-menu-list">
-
             <div
               className="settings-menu-item"
               onClick={() => setShowLanguages(!showLanguages)}
@@ -101,7 +104,6 @@ function Settings({ user, onLogout, onClose }) {
                 )}
               </div>
             )}
-
           </div>
 
           <div className="settings-divider" />
@@ -126,4 +128,3 @@ function Settings({ user, onLogout, onClose }) {
 }
 
 export default Settings;
-
