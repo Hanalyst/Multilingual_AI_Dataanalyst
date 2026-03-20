@@ -111,7 +111,7 @@ function Message({ message, question }) {
                   {message.data.map((row, i) => (
                     <tr key={i}>
                       {Object.values(row).map((val, j) => (
-                        <td key={j}>{typeof val === "number" ? val.toLocaleString() : val}</td>
+                        <td key={j}>{typeof val === "number" ? val.toLocaleString() : (typeof val === "string" && val.match(/^\d{4}-\d{2}-\d{2}T/) ? val.substring(0, 7) : val)}</td>
                       ))}
                     </tr>
                   ))}
@@ -154,4 +154,5 @@ function Message({ message, question }) {
 }
 
 export default Message;
+
 
