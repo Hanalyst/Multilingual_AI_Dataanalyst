@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, ForeignKey, DateTime, Text
+﻿from sqlalchemy import Column, Integer, String, ForeignKey, DateTime
 from sqlalchemy.orm import relationship
 from datetime import datetime
 from app.database import Base
@@ -10,7 +10,7 @@ class Dataset(Base):
 
     id         = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     name       = Column(String, nullable=False)
-    file_path  = Column(Text, nullable=False)
+    file_path  = Column(String, nullable=False)
     created_at = Column(DateTime, default=datetime.utcnow)
     user_id    = Column(Integer, ForeignKey("users.id"))
 

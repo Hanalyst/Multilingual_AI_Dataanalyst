@@ -14,6 +14,7 @@ from app.services.sql_generator import generate_sql
 import pandas as pd
 import io
 import uuid
+import re
 
 router = APIRouter()
 
@@ -54,21 +55,20 @@ def ask_question(
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to read CSV: {str(e)}")
 
-    # Clean column names — strip spaces, replace special chars
+    # Clean column names
     df.columns = [col.strip().replace(" ", "_").replace("-", "_") for col in df.columns]
 
     columns      = list(df.columns)
     column_types = {col: str(df[col].dtype) for col in df.columns}
     sample_rows  = df.head(5).to_dict(orient="records")
 
-    # 3. Generate unique temp table name for this request
+    # 3. Generate unique temp table name
     temp_table = f"tmp_{uuid.uuid4().hex[:12]}"
 
     # 4. Parse intent
     intent = parse_intent(question, columns=columns, column_types=column_types)
 
-    # 5. Generate SQL via Groq AI, fall back to rule-based
-    #    Tell AI the table name is the temp table
+    # 5. Generate SQL
     sql = generate_sql_with_ai(
         question=question,
         columns=columns,
@@ -80,14 +80,11 @@ def ask_question(
     if not sql:
         sql = generate_sql(intent, temp_table, columns)
     else:
-        # Replace hardcoded "data" table references with actual temp table name
-        import re
         sql = re.sub(r'\b"?data"?\b', f'"{temp_table}"', sql, flags=re.IGNORECASE)
 
-    # 6. Load CSV into PostgreSQL temp table and execute SQL
+    # 6. Execute SQL on PostgreSQL temp table
     try:
         with engine.begin() as conn:
-            # Write CSV data into temp table (auto-creates columns from df)
             df.to_sql(
                 temp_table,
                 conn,
@@ -96,19 +93,14 @@ def ask_question(
                 method="multi",
                 chunksize=500
             )
-
-            # Execute the AI-generated SQL
-            result = conn.execute(text(sql))
-            rows = result.fetchall()
-            col_names = list(result.keys())
-
-            # Drop temp table immediately after query
+            result     = conn.execute(text(sql))
+            rows       = result.fetchall()
+            col_names  = list(result.keys())
             conn.execute(text(f'DROP TABLE IF EXISTS "{temp_table}"'))
 
         result_df = pd.DataFrame(rows, columns=col_names)
 
     except Exception as e:
-        # Always try to clean up temp table even on error
         try:
             with engine.begin() as conn:
                 conn.execute(text(f'DROP TABLE IF EXISTS "{temp_table}"'))
@@ -141,7 +133,7 @@ def ask_question(
             }]
         }
 
-    # 8. Generate insight in selected language using AI
+    # 8. Generate insight in selected language
     insight = generate_insight_with_ai(
         question=question,
         sql=sql,
@@ -151,30 +143,39 @@ def ask_question(
 
     # 9. Save to chat history
     try:
+        # Generate new session_id if not provided
         if not session_id:
             session_id = str(uuid.uuid4())
 
+        # Ensure session_id is valid UUID string
+        session_uuid  = uuid.UUID(str(session_id))
+        dataset_uuid  = uuid.UUID(str(dataset_id))
+
         chat_entry = ChatHistory(
-            session_id=uuid.UUID(session_id),
-            user_id=current_user.id,
-            dataset_id=uuid.UUID(str(dataset_id)),
-            question=question,
-            sql_query=sql,
-            insight=insight,
-            result_data=result_df.to_dict(orient="records"),
-            chart_data=chart_data
+            session_id  = session_uuid,
+            user_id     = current_user.id,
+            dataset_id  = dataset_uuid,
+            question    = question,
+            sql_query   = sql,
+            insight     = insight,
+            result_data = result_df.to_dict(orient="records"),
+            chart_data  = chart_data
         )
         db.add(chat_entry)
         db.commit()
-    except Exception as e:
-        print(f"Chat history save failed: {str(e)}")
+        db.refresh(chat_entry)
 
-    # 10. Return
+    except Exception as e:
+        db.rollback()
+        print(f"Chat history save failed: {str(e)}")
+        # Don't raise — still return results even if history save fails
+
+    # 10. Return response
     return {
         "question":   question,
         "sql":        sql,
         "table":      result_df.to_dict(orient="records"),
         "chart":      chart_data,
         "insight":    insight,
-        "session_id": session_id
+        "session_id": str(session_id)
     }
