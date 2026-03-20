@@ -49,7 +49,7 @@ function Message({ message, question }) {
   const handlePDFExport = async () => {
     const wasOnChart = activeTab === "chart";
     if (!wasOnChart) setActiveTab("chart");
-    await new Promise(r => setTimeout(r, 300));
+    await new Promise(r => setTimeout(r, 800));
     await exportToPDF(question || message.question || "", message.sql, message.data, message.insight, getLang());
     if (!wasOnChart) setActiveTab("table");
   };
@@ -154,3 +154,4 @@ function Message({ message, question }) {
 }
 
 export default Message;
+

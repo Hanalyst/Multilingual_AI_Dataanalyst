@@ -19,6 +19,31 @@ const PDF_UI = {
   zh: { question:"问题", generatedSQL:"生成的SQL", chart:"图表", results:"结果", insight:"洞察", footer:"由Hanalyst - AI数据分析师生成", page:"第", of:"页" },
 };
 
+async function captureChart() {
+  // Try multiple selectors in order of preference
+  const selectors = [".chart-body", ".chart-box", ".recharts-wrapper", ".recharts-surface"];
+  for (const sel of selectors) {
+    const el = document.querySelector(sel);
+    if (el && el.offsetWidth > 0 && el.offsetHeight > 0) {
+      try {
+        const canvas = await html2canvas(el, {
+          backgroundColor: "#ffffff",
+          scale: 2,
+          useCORS: true,
+          logging: false,
+          allowTaint: true
+        });
+        if (canvas.width > 10 && canvas.height > 10) {
+          return canvas;
+        }
+      } catch (e) {
+        console.log("Capture failed for " + sel + ":", e);
+      }
+    }
+  }
+  return null;
+}
+
 export async function exportToPDF(question, sql, data, insight, lang = "en") {
   const t = PDF_UI[lang] || PDF_UI.en;
   const doc = new jsPDF();
@@ -35,6 +60,7 @@ export async function exportToPDF(question, sql, data, insight, lang = "en") {
 
   let y = 32;
 
+  // Question
   doc.setTextColor(30, 30, 30);
   doc.setFontSize(12);
   doc.setFont("helvetica", "bold");
@@ -49,6 +75,7 @@ export async function exportToPDF(question, sql, data, insight, lang = "en") {
   doc.text(questionLines, 16, y + 2);
   y += questionLines.length * 5.5 + 12;
 
+  // SQL
   if (sql) {
     doc.setTextColor(30, 30, 30);
     doc.setFontSize(12);
@@ -73,26 +100,23 @@ export async function exportToPDF(question, sql, data, insight, lang = "en") {
     y += sqlBoxH + 12;
   }
 
-  const chartEl = document.querySelector(".chart-body");
-  if (chartEl) {
-    try {
-      if (y > 180) { doc.addPage(); y = 20; }
-      doc.setTextColor(30, 30, 30);
-      doc.setFontSize(12);
-      doc.setFont("helvetica", "bold");
-      doc.text(t.chart, 14, y);
-      y += 6;
-      const canvas = await html2canvas(chartEl, { backgroundColor: "#1a1a1a", scale: 2, useCORS: true, logging: false });
-      const imgData = canvas.toDataURL("image/png");
-      const imgW = 182;
-      const imgH = Math.round((canvas.height / canvas.width) * imgW);
-      doc.addImage(imgData, "PNG", 14, y, imgW, imgH);
-      y += imgH + 12;
-    } catch (e) {
-      console.log("Chart capture failed:", e);
-    }
+  // Chart — wait longer for Recharts to fully render
+  const canvas = await captureChart();
+  if (canvas) {
+    if (y > 180) { doc.addPage(); y = 20; }
+    doc.setTextColor(30, 30, 30);
+    doc.setFontSize(12);
+    doc.setFont("helvetica", "bold");
+    doc.text(t.chart, 14, y);
+    y += 6;
+    const imgData = canvas.toDataURL("image/png");
+    const imgW = 182;
+    const imgH = Math.round((canvas.height / canvas.width) * imgW);
+    doc.addImage(imgData, "PNG", 14, y, imgW, imgH);
+    y += imgH + 12;
   }
 
+  // Results table
   if (data && data.length > 0) {
     if (y > 220) { doc.addPage(); y = 20; }
     doc.setTextColor(30, 30, 30);
@@ -115,6 +139,7 @@ export async function exportToPDF(question, sql, data, insight, lang = "en") {
     y = doc.lastAutoTable.finalY + 12;
   }
 
+  // Insight
   if (insight) {
     if (y > 240) { doc.addPage(); y = 20; }
     doc.setTextColor(30, 30, 30);
@@ -137,6 +162,7 @@ export async function exportToPDF(question, sql, data, insight, lang = "en") {
     y += insightBoxH + 8;
   }
 
+  // Footer
   const pageCount = doc.internal.getNumberOfPages();
   for (let i = 1; i <= pageCount; i++) {
     doc.setPage(i);
