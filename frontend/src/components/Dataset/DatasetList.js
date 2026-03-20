@@ -1,4 +1,4 @@
-﻿import { useEffect, useState, useContext, useCallback } from "react";
+﻿import { useEffect, useState, useContext } from "react";
 import API from "../../services/api";
 import { DatasetContext } from "../../context/DatasetContext";
 
@@ -6,10 +6,9 @@ function DatasetList() {
   const [datasets, setDatasets] = useState([]);
   const { datasetId, setDatasetId } = useContext(DatasetContext);
 
-  const fetchDatasets = useCallback(async () => {
+  const fetchDatasets = async () => {
     try {
       const res = await API.get("/my-datasets");
-      // Deduplicate by id (not name) — name duplicates are valid different datasets
       const seen = new Set();
       const unique = res.data.filter(d => {
         if (seen.has(d.id)) return false;
@@ -17,25 +16,23 @@ function DatasetList() {
         return true;
       });
       setDatasets(unique);
-
-      // If current active dataset no longer exists, clear it
-      const currentId = localStorage.getItem("dataset_id");
-      const stillExists = unique.some(d => String(d.id) === String(currentId));
-      if (!stillExists) {
-        if (unique.length > 0) {
-          setDatasetId(unique[0].id);
-          localStorage.setItem("dataset_id", unique[0].id);
-        } else {
-          setDatasetId(null);
-          localStorage.removeItem("dataset_id");
-        }
-      }
+      return unique;
     } catch (err) {
       console.error("Failed to fetch datasets:", err);
+      return [];
     }
-  }, [setDatasetId]);
+  };
 
-  useEffect(() => { fetchDatasets(); }, [fetchDatasets]);
+  useEffect(() => {
+    fetchDatasets().then(unique => {
+      // Only auto-select on first load if nothing is selected
+      const currentId = localStorage.getItem("dataset_id");
+      if (!currentId && unique.length > 0) {
+        setDatasetId(unique[0].id);
+        localStorage.setItem("dataset_id", unique[0].id);
+      }
+    });
+  }, []);
 
   const selectDataset = (dataset) => {
     setDatasetId(dataset.id);
@@ -48,18 +45,20 @@ function DatasetList() {
     try {
       await API.delete("/datasets/" + id);
 
-      // Immediately remove from local state for instant UI feedback
-      setDatasets(prev => prev.filter(d => d.id !== id));
+      // Instantly remove from UI
+      const remaining = datasets.filter(d => d.id !== id);
+      setDatasets(remaining);
 
-      // Clear active dataset if deleted one was selected
+      // If deleted dataset was active, select next available or clear
       if (String(datasetId) === String(id)) {
-        setDatasetId(null);
-        localStorage.removeItem("dataset_id");
+        if (remaining.length > 0) {
+          setDatasetId(remaining[0].id);
+          localStorage.setItem("dataset_id", remaining[0].id);
+        } else {
+          setDatasetId(null);
+          localStorage.removeItem("dataset_id");
+        }
       }
-
-      // Then refetch to sync with backend
-      await fetchDatasets();
-
     } catch (err) {
       console.error("Delete failed:", err);
       alert("Could not delete dataset.");
