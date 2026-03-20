@@ -1,4 +1,4 @@
-import { useContext, useRef } from "react";
+﻿import { useContext, useRef } from "react";
 import API from "../../services/api";
 import { DatasetContext } from "../../context/DatasetContext";
 
@@ -16,9 +16,10 @@ function UploadDataset({ onUploadSuccess }) {
     try {
       const res = await API.post("/upload", formData);
       const dataset = res.data;
-      setDatasetId(dataset.id);
-      localStorage.setItem("dataset_id", dataset.id);
-      if (onUploadSuccess) onUploadSuccess();
+      const newId = String(dataset.id);
+      setDatasetId(newId);
+      localStorage.setItem("dataset_id", newId);
+      if (onUploadSuccess) onUploadSuccess(newId, dataset.name);
     } catch (err) {
       console.error("Upload failed:", err);
       alert("Upload failed. Please try again.");

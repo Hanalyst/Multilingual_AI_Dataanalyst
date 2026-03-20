@@ -1,8 +1,8 @@
-import { useState, useEffect, useCallback, useRef } from "react";
+﻿import { useState, useEffect, useCallback, useRef, useContext } from "react";
 import UploadDataset from "../Dataset/UploadDataset";
-import DatasetList from "../Dataset/DatasetList";
 import Settings from "./Settings";
 import API from "../../services/api";
+import { DatasetContext } from "../../context/DatasetContext";
 
 function ChatMenuItem({ session, activeChatId, onLoadSession, onNewChat, onRename, onDelete }) {
   const [menuOpen, setMenuOpen] = useState(false);
@@ -26,8 +26,8 @@ function ChatMenuItem({ session, activeChatId, onLoadSession, onNewChat, onRenam
   const openMenu = (e) => {
     e.stopPropagation();
     const rect = btnRef.current.getBoundingClientRect();
-    setMenuPos({ 
-      top: rect.bottom + window.scrollY + 4, 
+    setMenuPos({
+      top: rect.bottom + window.scrollY + 4,
       left: rect.left + window.scrollX - 110
     });
     setMenuOpen(prev => !prev);
@@ -75,9 +75,9 @@ function ChatMenuItem({ session, activeChatId, onLoadSession, onNewChat, onRenam
         <div
           ref={menuRef}
           className="chat-menu-dropdown"
-          style={{ 
+          style={{
             position: "fixed",
-            top: menuPos.top, 
+            top: menuPos.top,
             left: menuPos.left,
             zIndex: 9999
           }}
@@ -116,9 +116,12 @@ function ChatMenuItem({ session, activeChatId, onLoadSession, onNewChat, onRenam
 
 function Sidebar({ onLoadSession, onNewChat, activeChatId, refreshTrigger, user, onLogout }) {
   const [sessions, setSessions] = useState([]);
+  const [datasets, setDatasets] = useState([]);
   const [open, setOpen] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
+  const { datasetId, setDatasetId } = useContext(DatasetContext);
 
+  // ── Fetch chat sessions ──────────────────────────────────────────
   const fetchSessions = useCallback(async () => {
     try {
       const res = await API.get("/my-chats");
@@ -132,6 +135,73 @@ function Sidebar({ onLoadSession, onNewChat, activeChatId, refreshTrigger, user,
     fetchSessions();
   }, [fetchSessions, refreshTrigger]);
 
+  // ── Fetch datasets ───────────────────────────────────────────────
+  const fetchDatasets = async () => {
+    try {
+      const res = await API.get("/my-datasets");
+      const seen = new Set();
+      const unique = res.data.filter(d => {
+        if (seen.has(d.id)) return false;
+        seen.add(d.id);
+        return true;
+      });
+      setDatasets(unique);
+      return unique;
+    } catch (err) {
+      console.error("Failed to fetch datasets:", err);
+      return [];
+    }
+  };
+
+  useEffect(() => {
+    fetchDatasets().then(unique => {
+      const currentId = localStorage.getItem("dataset_id");
+      if (!currentId && unique.length > 0) {
+        setDatasetId(unique[0].id);
+        localStorage.setItem("dataset_id", unique[0].id);
+      }
+    });
+  }, []);
+
+  // ── Upload success ───────────────────────────────────────────────
+  const handleUploadSuccess = async (newDatasetId, newDatasetName) => {
+    // Set new dataset as active immediately
+    setDatasetId(newDatasetId);
+    localStorage.setItem("dataset_id", newDatasetId);
+    // Refresh dataset list
+    await fetchDatasets();
+  };
+
+  // ── Select dataset ───────────────────────────────────────────────
+  const selectDataset = (dataset) => {
+    setDatasetId(dataset.id);
+    localStorage.setItem("dataset_id", dataset.id);
+  };
+
+  // ── Delete dataset ───────────────────────────────────────────────
+  const deleteDataset = async (e, id) => {
+    e.stopPropagation();
+    if (!window.confirm("Delete this dataset?")) return;
+    try {
+      await API.delete("/datasets/" + id);
+      const remaining = datasets.filter(d => d.id !== id);
+      setDatasets(remaining);
+      if (String(datasetId) === String(id)) {
+        if (remaining.length > 0) {
+          setDatasetId(remaining[0].id);
+          localStorage.setItem("dataset_id", remaining[0].id);
+        } else {
+          setDatasetId(null);
+          localStorage.removeItem("dataset_id");
+        }
+      }
+    } catch (err) {
+      console.error("Delete failed:", err);
+      alert("Could not delete dataset.");
+    }
+  };
+
+  // ── Chat actions ─────────────────────────────────────────────────
   const handleDelete = async (e, sessionId) => {
     e.stopPropagation();
     if (!window.confirm("Delete this chat?")) return;
@@ -171,15 +241,44 @@ function Sidebar({ onLoadSession, onNewChat, activeChatId, refreshTrigger, user,
 
       <div className="mobile-navbar">
         <button className="menu-btn" onClick={() => setOpen(!open)}>&#9776;</button>
-        <span style={{fontWeight: 700, fontSize: 16}}>Hanalyst</span>
+        <span style={{ fontWeight: 700, fontSize: 16 }}>Hanalyst</span>
       </div>
 
       <div className={`sidebar ${open ? "open" : ""}`}>
         <div className="sidebar-logo">Hanal<span>yst</span></div>
 
-        <UploadDataset onUploadSuccess={fetchSessions} />
+        <UploadDataset onUploadSuccess={handleUploadSuccess} />
         <div className="section-divider" />
-        <DatasetList />
+
+        {/* ── Dataset List ── */}
+        <div>
+          <p className="section-label">Datasets</p>
+          {datasets.length === 0 && (
+            <p className="no-chats">No datasets yet</p>
+          )}
+          {datasets.map(d => (
+            <div
+              key={d.id}
+              onClick={() => selectDataset(d)}
+              className={"dataset-item" + (String(datasetId) === String(d.id) ? " active-dataset" : "")}
+            >
+              <span className="dataset-name">&#128202; {d.name}</span>
+              <button
+                className="dataset-delete-btn"
+                onClick={(e) => deleteDataset(e, d.id)}
+                title="Delete dataset"
+              >
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <polyline points="3 6 5 6 21 6"/>
+                  <path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/>
+                  <path d="M10 11v6M14 11v6"/>
+                  <path d="M9 6V4h6v2"/>
+                </svg>
+              </button>
+            </div>
+          ))}
+        </div>
+
         <div className="section-divider" />
 
         <button className="sidebar-btn new-chat-btn" onClick={onNewChat}>
