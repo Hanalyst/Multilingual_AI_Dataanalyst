@@ -20,21 +20,20 @@ const UI = {
   zh: { table:"表格", chart:"图表", sql:"SQL", insight:"洞察", downloadExcel:"下载Excel", downloadPDF:"下载PDF", copy:"复制", copied:"已复制!", noSQL:"未生成SQL", noData:"无数据", noInsight:"无洞察", bar:"柱状", line:"折线", area:"面积", pie:"饼图", donut:"环形" },
 };
 
-function getLang() {
-  return UI[localStorage.getItem("language")] ? localStorage.getItem("language") : "en";
-}
-
 function Message({ message, question }) {
   const [activeTab, setActiveTab] = useState("table");
   const [copied, setCopied] = useState(false);
   const [chartType, setChartType] = useState(null);
   const chartRef = useRef(null);
 
+  // ── Lock language to the language active when this message was created ──
+  // message.lang is set by ChatWindow at the time the message is added
+  const msgLang = message.lang || "en";
+  const t = UI[msgLang] || UI.en;
+
   useEffect(() => {
     setChartType(message.chart?.type || "bar");
   }, [message]);
-
-  const t = UI[getLang()];
 
   const copySQL = () => {
     navigator.clipboard.writeText(message.sql || "");
@@ -43,14 +42,14 @@ function Message({ message, question }) {
   };
 
   const handleExcelExport = () => {
-    exportToExcel(question || message.question || "", message.data, message.insight, getLang());
+    exportToExcel(question || message.question || "", message.data, message.insight, msgLang);
   };
 
   const handlePDFExport = async () => {
     const wasOnChart = activeTab === "chart";
     if (!wasOnChart) setActiveTab("chart");
     await new Promise(r => setTimeout(r, 800));
-    await exportToPDF(question || message.question || "", message.sql, message.data, message.insight, getLang());
+    await exportToPDF(question || message.question || "", message.sql, message.data, message.insight, msgLang);
     if (!wasOnChart) setActiveTab("table");
   };
 
@@ -111,7 +110,13 @@ function Message({ message, question }) {
                   {message.data.map((row, i) => (
                     <tr key={i}>
                       {Object.values(row).map((val, j) => (
-                        <td key={j}>{typeof val === "number" ? val.toLocaleString() : (typeof val === "string" && val.match(/^\d{4}-\d{2}-\d{2}T/) ? val.substring(0, 7) : val)}</td>
+                        <td key={j}>
+                          {typeof val === "number"
+                            ? val.toLocaleString()
+                            : (typeof val === "string" && val.match(/^\d{4}-\d{2}-\d{2}T/)
+                              ? val.substring(0, 7)
+                              : val)}
+                        </td>
                       ))}
                     </tr>
                   ))}
@@ -154,5 +159,3 @@ function Message({ message, question }) {
 }
 
 export default Message;
-
-
