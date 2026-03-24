@@ -53,7 +53,7 @@ def ask_question(
     if not dataset_record:
         raise HTTPException(status_code=404, detail="Dataset not found. Please upload a dataset first.")
 
-    # Read from csv_content (DB text) — works on Render, no file path needed
+    # Read from csv_content (DB text)  works on Render, no file path needed
     csv_text = dataset_record.csv_content or dataset_record.file_path
     if not csv_text:
         raise HTTPException(status_code=404, detail="Dataset content missing. Please re-upload your CSV.")
