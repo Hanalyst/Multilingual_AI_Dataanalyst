@@ -31,7 +31,7 @@ async def upload_dataset(
 
     new_dataset = Dataset(
         name=file.filename,
-        file_path=csv_content,
+        csv_content=csv_content,
         user_id=current_user.id
     )
 

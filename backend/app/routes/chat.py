@@ -13,8 +13,8 @@ from pydantic import BaseModel
 from typing import Optional
 import pandas as pd
 import sqlite3
-import os
 import uuid
+import io
 
 router = APIRouter()
 
@@ -37,11 +37,9 @@ def ask_question(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
-    # ? Validate dataset_id
     if not data.dataset_id or data.dataset_id in ["None", "null", "", "undefined"]:
         raise HTTPException(status_code=400, detail="Please upload and select a dataset first")
 
-    # ? Validate UUID format
     try:
         dataset_uuid = uuid.UUID(data.dataset_id)
     except ValueError:
@@ -55,11 +53,13 @@ def ask_question(
     if not dataset_record:
         raise HTTPException(status_code=404, detail="Dataset not found. Please upload a dataset first.")
 
-    if not os.path.exists(dataset_record.file_path):
-        raise HTTPException(status_code=404, detail="CSV file not found on server")
+    # Read from csv_content (DB text) — works on Render, no file path needed
+    csv_text = dataset_record.csv_content or dataset_record.file_path
+    if not csv_text:
+        raise HTTPException(status_code=404, detail="Dataset content missing. Please re-upload your CSV.")
 
     try:
-        df = pd.read_csv(dataset_record.file_path)
+        df = pd.read_csv(io.StringIO(csv_text))
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to read CSV: {str(e)}")
 
