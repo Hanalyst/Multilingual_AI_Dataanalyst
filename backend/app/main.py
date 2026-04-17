@@ -1,5 +1,6 @@
-from fastapi import FastAPI, Depends
+from fastapi import FastAPI, Depends, Request
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
 from sqlalchemy import text
 
 # Load models FIRST — order matters for SQLAlchemy mapper config
@@ -12,7 +13,7 @@ from app.database import engine, Base
 from app.routes import auth
 from app.routes import dataset as dataset_routes
 from app.routes import upload
-from app.routes import chat  # ✅ ADD THIS — was missing!
+from app.routes import chat
 
 from app.services.auth_dependency import get_current_user
 
@@ -21,20 +22,36 @@ Base.metadata.create_all(bind=engine)
 
 app = FastAPI(title="Hanalyst API")
 
-# CORS for React
+# ✅ CORS FIXED — cannot use "*" with allow_credentials=True
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:3000"],  # ✅ restrict to your React dev server
+    allow_origins=[
+        "https://hanalyst-frontend.vercel.app",
+        "http://localhost:3000",
+    ],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
+# ✅ Handle OPTIONS preflight for ALL routes
+@app.options("/{rest_of_path:path}")
+async def preflight_handler(request: Request, rest_of_path: str):
+    return JSONResponse(
+        content="OK",
+        headers={
+            "Access-Control-Allow-Origin": "https://hanalyst-frontend.vercel.app",
+            "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS, PATCH",
+            "Access-Control-Allow-Headers": "*",
+            "Access-Control-Allow-Credentials": "true",
+        }
+    )
+
 # Routers
 app.include_router(auth.router)
 app.include_router(dataset_routes.router)
 app.include_router(upload.router)
-app.include_router(chat.router)  # ✅ ADD THIS
+app.include_router(chat.router)
 
 # -----------------------------
 # Basic APIs
