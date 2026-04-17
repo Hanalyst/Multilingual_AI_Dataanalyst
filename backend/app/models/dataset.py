@@ -15,5 +15,4 @@ class Dataset(Base):
     created_at = Column(DateTime, default=datetime.utcnow)
     user_id = Column(Integer, ForeignKey("users.id"))
 
-    user = relationship("User", back_populates="datasets")
-    chats = relationship("ChatHistory", back_populates="dataset")
+    user = relationship("User", back_populates="datasets")  # ✅ uncommented

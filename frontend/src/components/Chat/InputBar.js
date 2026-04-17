@@ -68,7 +68,7 @@ function InputBar({ messages, setMessages, setLoading, sessionId, setSessionId, 
   const sendMessage = async () => {
     if (!question.trim()) return;
     const dataset_id = localStorage.getItem("dataset_id");
-    if (!dataset_id || dataset_id === "null") { alert("Please upload a dataset first"); return; }
+    if (!dataset_id || dataset_id === "null" || dataset_id === "None" || dataset_id === "undefined") { alert("Please upload a dataset first"); return; }
     const currentQuestion = question;
     const lang = currentLang;
     setMessages((prev) => [...prev, { role: "user", text: currentQuestion, lang }]);

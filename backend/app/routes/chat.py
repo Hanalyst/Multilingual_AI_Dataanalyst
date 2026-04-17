@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException
+﻿from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from app.database import SessionLocal
 from app.models.dataset import Dataset
@@ -53,7 +53,7 @@ def ask_question(
     if not dataset_record:
         raise HTTPException(status_code=404, detail="Dataset not found. Please upload a dataset first.")
 
-    csv_text = dataset_record.file_path
+    csv_text = dataset_record.csv_content or dataset_record.file_path
     if not csv_text:
         raise HTTPException(status_code=404, detail="Dataset content missing. Please re-upload your CSV.")
 

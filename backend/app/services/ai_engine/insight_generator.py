@@ -4,6 +4,7 @@ import pandas as pd
 
 client = Groq(api_key=os.getenv("GROQ_API_KEY"))
 
+# All 14 supported languages
 LANGUAGE_NAMES = {
     "en": "English",
     "ta": "Tamil",
@@ -13,20 +14,21 @@ LANGUAGE_NAMES = {
     "ml": "Malayalam",
     "mr": "Marathi",
     "bn": "Bengali",
-    "gu": "Gujarati",
-    "pa": "Punjabi",
     "fr": "French",
     "de": "German",
     "es": "Spanish",
     "pt": "Portuguese",
     "zh": "Chinese",
-    "zh-cn": "Chinese",
-    "zh-tw": "Chinese",
     "ar": "Arabic",
-    "ja": "Japanese",
 }
 
-def generate_insight_with_ai(question, sql, df, language="en"):
+
+def generate_insight_with_ai(
+    question: str,
+    sql: str,
+    df: pd.DataFrame,
+    language: str = "en",
+) -> str:
     if df.empty:
         return "No data found for your query."
 
@@ -36,62 +38,110 @@ def generate_insight_with_ai(question, sql, df, language="en"):
         cols = list(df.columns)
         rows = len(df)
 
-        preview_text = ""
+        # Build a compact data preview (max 10 rows)
+        preview_lines = []
         for row in df.head(10).to_dict(orient="records"):
-            parts = [f"{k}={round(v,3) if isinstance(v,float) else v}" for k,v in row.items()]
-            preview_text += "  " + ", ".join(parts) + "\n"
+            parts = []
+            for k, v in row.items():
+                parts.append(f"{k}={round(v, 3) if isinstance(v, float) else v}")
+            preview_lines.append("  " + ", ".join(parts))
+        preview_text = "\n".join(preview_lines)
 
-        stats_text = ""
+        # Build numeric stats
+        stats_lines = []
         for col in cols:
-            if pd.api.types.is_numeric_dtype(df[col]):
-                stats_text += (
-                    f"{col}: min={round(df[col].min(),2)}, max={round(df[col].max(),2)}, "
-                    f"sum={round(df[col].sum(),2)}, avg={round(df[col].mean(),2)}\n"
-                )
+            try:
+                if pd.api.types.is_numeric_dtype(df[col]):
+                    stats_lines.append(
+                        f"{col}: min={round(df[col].min(), 2)}, "
+                        f"max={round(df[col].max(), 2)}, "
+                        f"sum={round(df[col].sum(), 2)}, "
+                        f"avg={round(df[col].mean(), 2)}"
+                    )
+            except Exception:
+                pass
+        stats_text = "\n".join(stats_lines)
 
+        # Detect top/bottom performers if we have 2 columns
         performance_text = ""
-        if len(cols) == 2 and pd.api.types.is_numeric_dtype(df[cols[1]]):
-            sorted_df = df.sort_values(cols[1], ascending=False)
-            top = sorted_df.iloc[0]
-            bottom = sorted_df.iloc[-1]
-            total = df[cols[1]].sum()
-            pct = round(float(top[cols[1]]) / total * 100, 1) if total else 0
-            performance_text = (
-                f"\nTop: {top[cols[0]]} = {round(float(top[cols[1]]),2)} ({pct}% of total)"
-                f"\nLowest: {bottom[cols[0]]} = {round(float(bottom[cols[1]]),2)}"
-            )
+        if len(cols) == 2:
+            try:
+                label_col, value_col = cols[0], cols[1]
+                if pd.api.types.is_numeric_dtype(df[value_col]):
+                    sorted_df = df.sort_values(value_col, ascending=False)
+                    top = sorted_df.iloc[0]
+                    bottom = sorted_df.iloc[-1]
+                    total = df[value_col].sum()
+                    top_pct = round(float(top[value_col]) / total * 100, 1) if total else 0
+                    performance_text = (
+                        f"\nTop performer: {top[label_col]} = {round(float(top[value_col]), 2)} ({top_pct}% of total)"
+                        f"\nLowest: {bottom[label_col]} = {round(float(bottom[value_col]), 2)}"
+                    )
+            except Exception:
+                pass
 
         prompt = (
-            f"User asked: {question}\n\nSQL:\n{sql}\n\n"
-            f"Result ({rows} rows):\n{preview_text}\nStats:\n{stats_text}{performance_text}\n\n"
-            f"Write a 3-4 sentence business insight in {lang_name}.\n"
-            "Cover: 1) Key finding with numbers  2) Notable pattern  3) Recommendation\n"
-            "Write in flowing prose, no bullet points."
+            f"User asked: {question}\n\n"
+            f"SQL:\n{sql}\n\n"
+            f"Result ({rows} rows):\n{preview_text}\n"
+            f"Stats:\n{stats_text}"
+            f"{performance_text}\n\n"
+            f"Write a clear business insight in 3-4 sentences in {lang_name}.\n"
+            "Structure your response as:\n"
+            "1. Key finding (most important number/trend)\n"
+            "2. Notable pattern or comparison\n"
+            "3. Actionable recommendation\n"
+            "Be specific with numbers. Avoid vague statements."
         )
 
         response = client.chat.completions.create(
             model="llama-3.3-70b-versatile",
             messages=[
-                {"role": "system", "content": f"You are a senior business analyst. You MUST respond ONLY in {lang_name} language. Do not use any other language."},
-                {"role": "user", "content": prompt}
+                {
+                    "role": "system",
+                    "content": (
+                        "You are a senior business data analyst. "
+                        "Provide clear, specific, actionable insights backed by the data. "
+                        f"Always respond in {lang_name} language only. "
+                        "Do not repeat the question. Do not use bullet points — write in flowing prose."
+                    ),
+                },
+                {"role": "user", "content": prompt},
             ],
             temperature=0.3,
-            max_tokens=300
+            max_tokens=250,
         )
+
         return response.choices[0].message.content.strip()
 
     except Exception as e:
         print(f"Insight error: {e}")
-        return _fallback_insight(df)
+        return _build_fallback_insight(df)
 
-def _fallback_insight(df):
+
+def _build_fallback_insight(df: pd.DataFrame) -> str:
+    """Rule-based fallback when the LLM call fails."""
     if df.empty:
         return "No data found."
+
     cols = list(df.columns)
     rows = len(df)
-    if len(cols) == 2 and pd.api.types.is_numeric_dtype(df[cols[1]]):
-        top = df.sort_values(cols[1], ascending=False).iloc[0]
-        total = round(float(df[cols[1]].sum()), 2)
-        pct = round(float(top[cols[1]]) / total * 100, 1) if total else 0
-        return f"{top[cols[0]]} leads with {round(float(top[cols[1]]),2):,} ({pct}% of {total:,}). {rows} groups total."
-    return f"{rows} rows, {len(cols)} columns."
+
+    if len(cols) == 2:
+        try:
+            label_col, value_col = cols[0], cols[1]
+            if pd.api.types.is_numeric_dtype(df[value_col]):
+                sorted_df = df.sort_values(value_col, ascending=False)
+                top = sorted_df.iloc[0]
+                total = round(float(df[value_col].sum()), 2)
+                top_val = round(float(top[value_col]), 2)
+                pct = round(top_val / total * 100, 1) if total else 0
+                avg = round(float(df[value_col].mean()), 2)
+                return (
+                    f"'{top[label_col]}' leads with {top_val:,} ({pct}% of total {total:,}). "
+                    f"Average across {rows} groups is {avg:,}."
+                )
+        except Exception:
+            pass
+
+    return f"Query returned {rows} rows across {len(cols)} columns."

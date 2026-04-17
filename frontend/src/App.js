@@ -1,30 +1,26 @@
-import { useState } from "react";
-import Dashboard from "./pages/Dashboard";
-import Login from "./pages/Login";
-import "./styles/global.css";
-import { DatasetProvider } from "./context/DatasetContext";
+import axios from "axios";
 
-function App() {
-  const [isLoggedIn, setIsLoggedIn] = useState(
-    !!localStorage.getItem("token")
-  );
+const API = axios.create({
+  baseURL: process.env.REACT_APP_API_URL || "http://127.0.0.1:8000"
+});
 
-  const handleLogin = () => setIsLoggedIn(true);
+API.interceptors.request.use((req) => {
+  const token = localStorage.getItem("token");
+  if (token) {
+    req.headers.Authorization = `Bearer ${token}`;
+  }
+  return req;
+});
 
-  const handleLogout = () => {
-    localStorage.removeItem("token");
-    localStorage.removeItem("dataset_id");
-    setIsLoggedIn(false);
-  };
+API.interceptors.response.use(
+  (response) => response,
+  (error) => {
+    if (error.response?.status === 401) {
+      localStorage.clear();
+      window.location.href = "/";
+    }
+    return Promise.reject(error);
+  }
+);
 
-  return (
-    <DatasetProvider>
-      {isLoggedIn
-        ? <Dashboard onLogout={handleLogout} />
-        : <Login onLogin={handleLogin} />
-      }
-    </DatasetProvider>
-  );
-}
-
-export default App;
+export default API;

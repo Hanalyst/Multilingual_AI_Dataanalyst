@@ -10,28 +10,36 @@ function Login({ onLogin }) {
   const handleSubmit = async () => {
     setError("");
     setLoading(true);
+
     try {
       if (isRegister) {
+        // Register
         await API.post("/register", {
           username: form.username,
           email: form.email,
           password: form.password
         });
-        alert("Registered! Please login.");
+        alert("Registered successfully! Please login.");
         setIsRegister(false);
+
       } else {
+        // Login — MUST be form-urlencoded for OAuth2PasswordRequestForm
         const formData = new URLSearchParams();
         formData.append("username", form.email);
         formData.append("password", form.password);
+
         const res = await API.post("/login", formData, {
           headers: { "Content-Type": "application/x-www-form-urlencoded" }
         });
+
         localStorage.setItem("token", res.data.access_token);
-        onLogin();
+        onLogin(); // tell App.js login succeeded
       }
+
     } catch (err) {
       setError(err.response?.data?.detail || "Something went wrong");
     }
+
     setLoading(false);
   };
 
@@ -42,28 +50,46 @@ function Login({ onLogin }) {
         <p className="login-subtitle">
           {isRegister ? "Create your account" : "Sign in to continue"}
         </p>
+
         {isRegister && (
-          <input className="login-input" placeholder="Username"
+          <input
+            className="login-input"
+            placeholder="Username"
             value={form.username}
             onChange={e => setForm({ ...form, username: e.target.value })}
           />
         )}
-        <input className="login-input" placeholder="Email" type="email"
+
+        <input
+          className="login-input"
+          placeholder="Email"
+          type="email"
           value={form.email}
           onChange={e => setForm({ ...form, email: e.target.value })}
         />
-        <input className="login-input" placeholder="Password" type="password"
+
+        <input
+          className="login-input"
+          placeholder="Password"
+          type="password"
           value={form.password}
           onChange={e => setForm({ ...form, password: e.target.value })}
           onKeyDown={e => e.key === "Enter" && handleSubmit()}
         />
+
         {error && <p className="login-error">{error}</p>}
-        <button className="login-btn" onClick={handleSubmit} disabled={loading}>
+
+        <button
+          className="login-btn"
+          onClick={handleSubmit}
+          disabled={loading}
+        >
           {loading ? "Please wait..." : isRegister ? "Register" : "Login"}
         </button>
+
         <p className="login-toggle">
           {isRegister ? "Already have an account?" : "Don't have an account?"}
-          <span onClick={() => { setIsRegister(!isRegister); setForm({ username: "", email: "", password: "" }); setError(""); }}>
+          <span onClick={() => setIsRegister(!isRegister)}>
             {isRegister ? " Login" : " Register"}
           </span>
         </p>
@@ -73,4 +99,3 @@ function Login({ onLogin }) {
 }
 
 export default Login;
-

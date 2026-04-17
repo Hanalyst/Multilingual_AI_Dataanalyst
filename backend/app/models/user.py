@@ -9,7 +9,6 @@ class User(Base):
     id = Column(Integer, primary_key=True, index=True)
     username = Column(String)
     email = Column(String, unique=True)
-    hashed_password = Column(String)
+    hashed_password = Column(String)  # ✅ NOT "password"
 
-    datasets = relationship("Dataset", back_populates="user")
-    chats = relationship("ChatHistory", back_populates="user")
+    datasets = relationship("Dataset", back_populates="user")  # ✅ must exist
