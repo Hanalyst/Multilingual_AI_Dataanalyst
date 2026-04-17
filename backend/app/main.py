@@ -17,7 +17,7 @@ Base.metadata.create_all(bind=engine)
 
 app = FastAPI(title="Hanalyst API")
 
-# ✅ CORS - explicit origins only, no wildcard
+# ✅ CORS middleware
 app.add_middleware(
     CORSMiddleware,
     allow_origins=[
@@ -26,27 +26,29 @@ app.add_middleware(
     ],
     allow_credentials=True,
     allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"],
-    allow_headers=["*"],
+    allow_headers=[
+        "Authorization",
+        "Content-Type",
+        "Accept",
+        "Origin",
+        "X-Requested-With",
+    ],
 )
 
-# ✅ OPTIONS preflight handler - must be before routers
-@app.options("/{rest_of_path:path}")
-async def preflight_handler(request: Request, rest_of_path: str):
-    return JSONResponse(
-        content="OK",
-        headers={
-            "Access-Control-Allow-Origin": "https://hanalyst-frontend.vercel.app",
-            "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS, PATCH",
-            "Access-Control-Allow-Headers": "*",
-            "Access-Control-Allow-Credentials": "true",
-        }
-    )
-
-# ✅ Routers AFTER the preflight handler
+# ✅ Routers
 app.include_router(auth.router)
 app.include_router(dataset_routes.router)
 app.include_router(upload.router)
 app.include_router(chat.router)
+
+# ✅ Root route - GET
+@app.get("/")
+def root():
+    return {"status": "Hanalyst backend running"}
+
+@app.get("/health")
+def health():
+    return {"status": "Hanalyst backend running"}
 
 @app.get("/me")
 def read_current_user(current_user: User = Depends(get_current_user)):
@@ -55,10 +57,6 @@ def read_current_user(current_user: User = Depends(get_current_user)):
         "username": current_user.username,
         "email": current_user.email
     }
-
-@app.get("/health")
-def health():
-    return {"status": "Hanalyst backend running"}
 
 @app.get("/db-check")
 def db_check():
